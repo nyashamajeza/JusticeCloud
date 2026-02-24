@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JusticeCloud | Control Panel</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Poppins;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+color:white;
+}
+
+.sidebar{
+position:fixed;
+width:260px;
+height:100vh;
+background:rgba(0,0,0,0.6);
+padding:25px;
+}
+
+.sidebar a{
+display:block;
+color:white;
+text-decoration:none;
+padding:15px;
+margin-top:10px;
+border-radius:10px;
+transition:0.3s;
+}
+
+.sidebar a:hover{
+background:#00ffd5;
+color:black;
+}
+
+.main{
+margin-left:280px;
+padding:40px;
+}
+
+.card{
+background:rgba(255,255,255,0.1);
+backdrop-filter:blur(10px);
+padding:25px;
+border-radius:18px;
+width:230px;
+box-shadow:0px 10px 40px rgba(0,0,0,0.4);
+transition:0.4s;
+}
+
+.card:hover{
+transform:translateY(-10px);
+}
+
+.stats{
+display:flex;
+gap:25px;
+flex-wrap:wrap;
+}
+
+h1,h2,h3{
+font-weight:600;
+}
+
+.search-box{
+width:100%;
+padding:15px;
+border-radius:12px;
+border:none;
+margin-top:20px;
+}
+
+.btn{
+background:#00ffd5;
+padding:12px 22px;
+border:none;
+border-radius:10px;
+font-weight:bold;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+<h2>⚖ JusticeCloud</h2>
+
+<p>Welcome {{user}}</p>
+
+<a href="/dashboard">Dashboard</a>
+<a href="/add_case">Add Case</a>
+<a href="/view_cases">View Cases</a>
+<a href="/logout">Logout</a>
+
+</div>
+
+<div class="main">
+
+<h1>Judicial Control Center</h1>
+<p>Role: {{role}}</p>
+
+<div class="stats">
+
+<div class="card">
+<h2>📊 Total Cases</h2>
+<h1>{{total}}</h1>
+</div>
+
+<div class="card">
+<h2>📂 Open Cases</h2>
+<h1>{{open_cases}}</h1>
+</div>
+
+<div class="card">
+<h2>✅ Closed Cases</h2>
+<h1>{{closed_cases}}</h1>
+</div>
+
+</div>
+
+<!-- SEARCH -->
+<div style="margin-top:50px">
+
+<h2>🔍 Search Court Cases</h2>
+
+<form method="GET" action="/view_cases">
+
+<input class="search-box"
+name="search"
+placeholder="Enter Case Number">
+
+<br><br>
+<button class="btn">Search Cases</button>
+
+</form>
+
+</div>
+
+<!-- CHARTS -->
+
+<div style="margin-top:50px">
+
+<h2>📈 Judicial Analytics</h2>
+
+<canvas id="chart1"></canvas>
+<canvas id="chart2" style="margin-top:40px"></canvas>
+
+</div>
+
+</div>
+
+<script>
+
+
+/* CHART 1 */
+
+const ctx1 = document.getElementById("chart1");
+
+new Chart(ctx1,{
+type:"bar",
+data:{
+labels:["Open","Closed","Total"],
+datasets:[{
+label:"Case Status Overview",
+data:[
+Number("{{open_cases}}"),
+Number("{{closed_cases}}"),
+Number("{{total}}")
+],
+backgroundColor:["#00ffd5","#2ecc71","#3498db"]
+}]
+}
+});
+
+/* CHART 2 */
+
+const ctx2 = document.getElementById("chart2");
+
+new Chart(ctx2,{
+type:"pie",
+data:{
+labels:["Open","Closed"],
+datasets:[{
+data:[
+Number("{{open_cases}}"),
+Number("{{closed_cases}}")
+],
+backgroundColor:["#00ffd5","#2ecc71"]
+}]
+}
+});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>View Cases</title>
+
+<style>
+body{
+font-family:Arial;
+background:#0f2027;
+color:white;
+padding:40px;
+}
+
+table{
+width:100%;
+background:white;
+color:black;
+border-radius:10px;
+}
+
+th,td{
+padding:15px;
+text-align:left;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>Registered Court Cases</h2>
+
+<table border="1">
+
+<tr>
+<th>ID</th>
+<th>Case Number</th>
+<th>Client</th>
+<th>Type</th>
+<th>Hearing Date</th>
+<th>Status</th>
+</tr>
+
+{% for case in cases %}
+<tr>
+<td>{{case["case_number"]}}</td>
+<td>{{case["client_name"]}}</td>
+<td>{{case["case_type"]}}</td>
+<td>{{case["hearing_date"]}}</td>
+<td>{{case["status"]}}</td>
+<td>
+{% if case["document"] %}
+<a href="/static/uploads/{{case['document']}}">View Document</a>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</body>
+</html>

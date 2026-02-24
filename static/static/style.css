@@ -1,0 +1,64 @@
+body{
+font-family: 'Segoe UI', sans-serif;
+margin:0;
+background: linear-gradient(120deg,#0f2027,#203a43,#2c5364);
+color:white;
+}
+
+/* Navigation */
+
+nav{
+background:rgba(0,0,0,0.6);
+padding:15px;
+display:flex;
+justify-content:space-between;
+}
+
+/* Dashboard Cards */
+
+.card{
+background:white;
+color:black;
+padding:25px;
+border-radius:15px;
+box-shadow:0px 10px 30px rgba(0,0,0,0.4);
+transition:0.4s;
+}
+
+.card:hover{
+transform:translateY(-10px);
+}
+
+/* Buttons */
+
+.btn{
+background:#00ffd5;
+padding:12px 20px;
+border-radius:8px;
+text-decoration:none;
+color:black;
+font-weight:bold;
+}
+
+/* Tables */
+
+table{
+width:100%;
+background:white;
+color:black;
+border-radius:10px;
+}
+
+th,td{
+padding:15px;
+}
+
+/* Forms */
+
+input{
+width:100%;
+padding:12px;
+margin-top:10px;
+border-radius:6px;
+border:none;
+}

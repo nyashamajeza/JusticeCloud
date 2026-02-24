@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Add Case</title>
+
+<style>
+body{
+font-family:Arial;
+background:#1e3c72;
+color:white;
+padding:40px;
+}
+
+input{
+width:300px;
+padding:10px;
+margin-top:10px;
+}
+
+button{
+padding:12px;
+margin-top:20px;
+background:#00ffd5;
+border:none;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>Add New Court Case</h2>
+
+<form method="POST">
+
+Case Number <br>
+<input name="case_number" required><br>
+
+Client Name <br>
+<input name="client_name" required><br>
+
+Case Type <br>
+<input name="case_type" required><br>
+
+Hearing Date <br>
+<input name="hearing_date" type="date"><br>
+
+Status <br>
+<input name="status" placeholder="Open / Closed"><br>
+
+<button>Add Case</button>
+
+</form>
+
+</body>
+</html>

@@ -13,7 +13,13 @@ app.secret_key = "justicecloud_final_project_key"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL not found in environment variables")
+
+    return psycopg2.connect(
+        DATABASE_URL,
+        sslmode="require"
+    )
 
 # ---------------- INIT DATABASE ----------------
 
@@ -22,7 +28,6 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
 
-    # Users table
     c.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id SERIAL PRIMARY KEY,
@@ -32,7 +37,6 @@ def init_db():
     )
     """)
 
-    # Cases table
     c.execute("""
     CREATE TABLE IF NOT EXISTS cases(
         id SERIAL PRIMARY KEY,
@@ -45,7 +49,6 @@ def init_db():
     )
     """)
 
-    # Default admin
     c.execute("""
     INSERT INTO users(username,password,role)
     SELECT 'admin','admin123','Administrator'
@@ -79,25 +82,29 @@ def login():
 
     if request.method == "POST":
 
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username")
+        password = request.form.get("password")
 
-        conn = get_db_connection()
-        c = conn.cursor()
+        try:
+            conn = get_db_connection()
+            c = conn.cursor()
 
-        c.execute("""
-        SELECT * FROM users
-        WHERE username=%s AND password=%s
-        """,(username,password))
+            c.execute("""
+            SELECT * FROM users
+            WHERE username=%s AND password=%s
+            """,(username,password))
 
-        user = c.fetchone()
-        conn.close()
+            user = c.fetchone()
+            conn.close()
 
-        if user:
-            session["user"] = user[1]
-            session["role"] = user[3]
+            if user:
+                session["user"] = user[1]
+                session["role"] = user[3]
 
-            return redirect("/dashboard")
+                return redirect("/dashboard")
+
+        except Exception as e:
+            print("Login error:", e)
 
     return render_template("login.html")
 
@@ -147,11 +154,11 @@ def add_case():
 
     if request.method == "POST":
 
-        case_number = request.form["case_number"]
-        client_name = request.form["client_name"]
-        case_type = request.form["case_type"]
-        hearing_date = request.form["hearing_date"]
-        status = request.form["status"]
+        case_number = request.form.get("case_number")
+        client_name = request.form.get("client_name")
+        case_type = request.form.get("case_type")
+        hearing_date = request.form.get("hearing_date")
+        status = request.form.get("status")
 
         document = ""
 

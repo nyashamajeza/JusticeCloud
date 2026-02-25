@@ -4,17 +4,21 @@ from flask import Flask, render_template, request, redirect, session
 from werkzeug.utils import secure_filename
 
 # ---------------- APP SETUP ----------------
+
 app = Flask(__name__)
 app.secret_key = "justicecloud_final_project_key"
 
 # ---------------- DATABASE ----------------
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
 # ---------------- INIT DATABASE ----------------
+
 def init_db():
+
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -41,7 +45,7 @@ def init_db():
     )
     """)
 
-    # Default admin account
+    # Default admin
     c.execute("""
     INSERT INTO users(username,password,role)
     SELECT 'admin','admin123','Administrator'
@@ -55,34 +59,53 @@ def init_db():
     conn.close()
 
 # ---------------- FILE UPLOAD ----------------
+
 UPLOAD_FOLDER = "static/uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# ---------------- LOGIN ----------------
+# ---------------- ROUTES ----------------
+
+@app.route("/")
+def home():
+    return redirect("/login")
+
+# ---------- LOGIN ----------
+
 @app.route("/login", methods=["GET","POST"])
 def login():
+
     if request.method == "POST":
+
         username = request.form["username"]
         password = request.form["password"]
 
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username,password))
+
+        c.execute("""
+        SELECT * FROM users
+        WHERE username=%s AND password=%s
+        """,(username,password))
+
         user = c.fetchone()
         conn.close()
 
         if user:
             session["user"] = user[1]
             session["role"] = user[3]
+
             return redirect("/dashboard")
 
     return render_template("login.html")
 
-# ---------------- DASHBOARD ----------------
+# ---------- DASHBOARD ----------
+
 @app.route("/dashboard")
 def dashboard():
+
     if "user" not in session:
         return redirect("/login")
 
@@ -104,21 +127,26 @@ def dashboard():
     if total_cases > 0:
         prediction = round((closed_cases / total_cases) * 100,2)
 
-    return render_template("dashboard.html",
-                           user=session["user"],
-                           role=session["role"],
-                           total=total_cases,
-                           open_cases=open_cases,
-                           closed_cases=closed_cases,
-                           prediction=prediction)
+    return render_template(
+        "dashboard.html",
+        user=session["user"],
+        role=session["role"],
+        total=total_cases,
+        open_cases=open_cases,
+        closed_cases=closed_cases,
+        prediction=prediction
+    )
 
-# ---------------- ADD CASE ----------------
+# ---------- ADD CASE ----------
+
 @app.route("/add_case", methods=["GET","POST"])
 def add_case():
+
     if "user" not in session:
         return redirect("/login")
 
     if request.method == "POST":
+
         case_number = request.form["case_number"]
         client_name = request.form["client_name"]
         case_type = request.form["case_type"]
@@ -126,19 +154,28 @@ def add_case():
         status = request.form["status"]
 
         document = ""
+
         if "file" in request.files:
             file = request.files["file"]
+
             if file.filename != "":
                 filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+
+                file.save(
+                    os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                )
+
                 document = filename
 
         conn = get_db_connection()
         c = conn.cursor()
+
         c.execute("""
-        INSERT INTO cases(case_number,client_name,case_type,hearing_date,status,document)
+        INSERT INTO cases
+        (case_number,client_name,case_type,hearing_date,status,document)
         VALUES(%s,%s,%s,%s,%s,%s)
-        """, (case_number,client_name,case_type,hearing_date,status,document))
+        """,(case_number,client_name,case_type,hearing_date,status,document))
+
         conn.commit()
         conn.close()
 
@@ -146,9 +183,11 @@ def add_case():
 
     return render_template("add_case.html")
 
-# ---------------- VIEW CASES ----------------
+# ---------- VIEW CASES ----------
+
 @app.route("/view_cases")
 def view_cases():
+
     if "user" not in session:
         return redirect("/login")
 
@@ -158,7 +197,10 @@ def view_cases():
     c = conn.cursor()
 
     if search:
-        c.execute("SELECT * FROM cases WHERE case_number LIKE %s", ("%"+search+"%",))
+        c.execute("""
+        SELECT * FROM cases
+        WHERE case_number LIKE %s
+        """,("%"+search+"%",))
     else:
         c.execute("SELECT * FROM cases")
 
@@ -167,13 +209,15 @@ def view_cases():
 
     return render_template("view_cases.html", cases=cases)
 
-# ---------------- LOGOUT ----------------
+# ---------- LOGOUT ----------
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/login")
 
 # ---------------- RUN ----------------
+
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    app.run()

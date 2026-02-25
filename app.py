@@ -1,128 +1,92 @@
-from flask import Flask, render_template, request, redirect, session
-import sqlite3
 import os
+import psycopg2
+from flask import Flask, render_template, request, redirect, session
 from werkzeug.utils import secure_filename
 
+# ---------------- APP SETUP ----------------
 app = Flask(__name__)
-app.secret_key = "elitejusticecloudsystem"
+app.secret_key = "justicecloud_final_project_key"
 
-# ---------------- FILE UPLOAD ----------------
-
-UPLOAD_FOLDER = "static/uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-# ---------------- DATABASE CORE ----------------
-
-def init_db():
-    
-    conn = sqlite3.connect("justice.db")
-    c = conn.cursor()
+# ---------------- DATABASE ----------------
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    conn = sqlite3.connect("justice.db")
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
-def admin_required(f):
-    def wrapper(*args, **kwargs):
-        if "user" not in session:
-            return redirect("/login")
+# ---------------- INIT DATABASE ----------------
+def init_db():
+    conn = get_db_connection()
+    c = conn.cursor()
 
-        if session.get("role") != "Administrator":
-            return redirect("/dashboard")
-
-        return f(*args, **kwargs)
-
-    wrapper.__name__ = f.__name__
-    return wrapper
-    
     # Users table
     c.execute("""
     CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        password TEXT,
-        role TEXT
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE,
+        password VARCHAR(100),
+        role VARCHAR(50)
     )
     """)
 
     # Cases table
     c.execute("""
     CREATE TABLE IF NOT EXISTS cases(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        case_number TEXT,
-        client_name TEXT,
-        case_type TEXT,
-        hearing_date TEXT,
-        status TEXT,
-        document TEXT
+        id SERIAL PRIMARY KEY,
+        case_number VARCHAR(100),
+        client_name VARCHAR(100),
+        case_type VARCHAR(100),
+        hearing_date VARCHAR(100),
+        status VARCHAR(50),
+        document VARCHAR(200)
     )
     """)
 
-    # Default accounts
-    c.execute("INSERT OR IGNORE INTO users(id,username,password,role) VALUES(1,'admin','admin123','Administrator')")
-    c.execute("INSERT OR IGNORE INTO users(id,username,password,role) VALUES(2,'clerk','clerk123','Clerk')")
+    # Default admin account
+    c.execute("""
+    INSERT INTO users(username,password,role)
+    SELECT 'admin','admin123','Administrator'
+    WHERE NOT EXISTS (
+        SELECT 1 FROM users WHERE username='admin'
+    )
+    """)
 
     conn.commit()
+    c.close()
     conn.close()
 
-init_db()
+# ---------------- FILE UPLOAD ----------------
+UPLOAD_FOLDER = "static/uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-# ---------------- AI STYLE PREDICTION ENGINE ----------------
-
-def prediction_engine(total, closed):
-
-    if total == 0:
-        return 0
-
-    # Simulation model (academic AI demo)
-    return int((closed / total) * 100)
-
-# ---------------- ROUTES ----------------
-
-@app.route("/")
-def home():
-    return redirect("/login")
-
-# ---------- LOGIN ----------
-
+# ---------------- LOGIN ----------------
 @app.route("/login", methods=["GET","POST"])
 def login():
-
     if request.method == "POST":
-
         username = request.form["username"]
         password = request.form["password"]
 
-        conn = sqlite3.connect("justice.db")
+        conn = get_db_connection()
         c = conn.cursor()
-
-        c.execute("SELECT * FROM users WHERE username=? AND password=?",
-                  (username,password))
-
+        c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username,password))
         user = c.fetchone()
         conn.close()
 
         if user:
-            session["user"] = username
+            session["user"] = user[1]
             session["role"] = user[3]
-
             return redirect("/dashboard")
 
     return render_template("login.html")
 
-# ---------- DASHBOARD ----------
-
+# ---------------- DASHBOARD ----------------
 @app.route("/dashboard")
 def dashboard():
-
     if "user" not in session:
         return redirect("/login")
 
-    conn = sqlite3.connect("justice.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("SELECT COUNT(*) FROM cases")
@@ -136,7 +100,9 @@ def dashboard():
 
     conn.close()
 
-    prediction = prediction_engine(total_cases, closed_cases)
+    prediction = 0
+    if total_cases > 0:
+        prediction = round((closed_cases / total_cases) * 100,2)
 
     return render_template("dashboard.html",
                            user=session["user"],
@@ -146,16 +112,13 @@ def dashboard():
                            closed_cases=closed_cases,
                            prediction=prediction)
 
-# ---------- ADD CASE ----------
-
+# ---------------- ADD CASE ----------------
 @app.route("/add_case", methods=["GET","POST"])
 def add_case():
-
     if "user" not in session:
         return redirect("/login")
 
     if request.method == "POST":
-
         case_number = request.form["case_number"]
         client_name = request.form["client_name"]
         case_type = request.form["case_type"]
@@ -163,29 +126,19 @@ def add_case():
         status = request.form["status"]
 
         document = ""
-
         if "file" in request.files:
-
             file = request.files["file"]
-
             if file.filename != "":
                 filename = secure_filename(file.filename)
-
-                file.save(os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    filename
-                ))
-
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
                 document = filename
 
-        conn = sqlite3.connect("justice.db")
+        conn = get_db_connection()
         c = conn.cursor()
-
         c.execute("""
         INSERT INTO cases(case_number,client_name,case_type,hearing_date,status,document)
-        VALUES(?,?,?,?,?,?)
-        """,(case_number,client_name,case_type,hearing_date,status,document))
-
+        VALUES(%s,%s,%s,%s,%s,%s)
+        """, (case_number,client_name,case_type,hearing_date,status,document))
         conn.commit()
         conn.close()
 
@@ -193,22 +146,19 @@ def add_case():
 
     return render_template("add_case.html")
 
-# ---------- VIEW + SEARCH CASES ----------
-
+# ---------------- VIEW CASES ----------------
 @app.route("/view_cases")
 def view_cases():
-
     if "user" not in session:
         return redirect("/login")
 
     search = request.args.get("search")
 
-    conn = sqlite3.connect("justice.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     if search:
-        c.execute("SELECT * FROM cases WHERE case_number LIKE ?",
-                  ("%"+search+"%",))
+        c.execute("SELECT * FROM cases WHERE case_number LIKE %s", ("%"+search+"%",))
     else:
         c.execute("SELECT * FROM cases")
 
@@ -217,20 +167,13 @@ def view_cases():
 
     return render_template("view_cases.html", cases=cases)
 
-# ---------- REPORT DOWNLOAD ----------
-
-@app.route("/report")
-def report():
-    return redirect("/static/court_report.pdf")
-
-# ---------- LOGOUT ----------
-
+# ---------------- LOGOUT ----------------
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/login")
 
 # ---------------- RUN ----------------
-
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)

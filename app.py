@@ -24,42 +24,51 @@ def get_db_connection():
 # ---------------- INIT DATABASE ----------------
 
 def init_db():
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
 
-    conn = get_db_connection()
-    c = conn.cursor()
+        # Create users table
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS users(
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) UNIQUE,
+            password VARCHAR(100),
+            role VARCHAR(50)
+        )
+        """)
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(100) UNIQUE,
-        password VARCHAR(100),
-        role VARCHAR(50)
-    )
-    """)
+        # Create cases table
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS cases(
+            id SERIAL PRIMARY KEY,
+            case_number VARCHAR(100),
+            client_name VARCHAR(100),
+            case_type VARCHAR(100),
+            hearing_date VARCHAR(100),
+            status VARCHAR(50),
+            document VARCHAR(200)
+        )
+        """)
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS cases(
-        id SERIAL PRIMARY KEY,
-        case_number VARCHAR(100),
-        client_name VARCHAR(100),
-        case_type VARCHAR(100),
-        hearing_date VARCHAR(100),
-        status VARCHAR(50),
-        document VARCHAR(200)
-    )
-    """)
+        # Ensure admin exists
+        c.execute("SELECT * FROM users WHERE username=%s", ("admin",))
+        admin = c.fetchone()
 
-    c.execute("""
-    INSERT INTO users(username,password,role)
-    SELECT 'admin','admin123','Administrator'
-    WHERE NOT EXISTS (
-        SELECT 1 FROM users WHERE username='admin'
-    )
-    """)
+        if not admin:
+            c.execute("""
+            INSERT INTO users(username,password,role)
+            VALUES(%s,%s,%s)
+            """, ("admin","admin123","Administrator"))
 
-    conn.commit()
-    c.close()
-    conn.close()
+        conn.commit()
+        conn.close()
+
+    except Exception as e:
+        print("DB INIT ERROR:", e)
+
+# 🔥 IMPORTANT: FORCE DB INIT ON STARTUP (FOR GUNICORN)
+init_db()
 
 # ---------------- FILE UPLOAD ----------------
 
@@ -100,7 +109,6 @@ def login():
             if user:
                 session["user"] = user[1]
                 session["role"] = user[3]
-
                 return redirect("/dashboard")
 
         except Exception as e:
@@ -164,14 +172,9 @@ def add_case():
 
         if "file" in request.files:
             file = request.files["file"]
-
             if file.filename != "":
                 filename = secure_filename(file.filename)
-
-                file.save(
-                    os.path.join(app.config["UPLOAD_FOLDER"], filename)
-                )
-
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
                 document = filename
 
         conn = get_db_connection()
@@ -204,10 +207,8 @@ def view_cases():
     c = conn.cursor()
 
     if search:
-        c.execute("""
-        SELECT * FROM cases
-        WHERE case_number LIKE %s
-        """,("%"+search+"%",))
+        c.execute("SELECT * FROM cases WHERE case_number LIKE %s",
+                  ("%"+search+"%",))
     else:
         c.execute("SELECT * FROM cases")
 
@@ -223,14 +224,8 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# ---------------- RUN ----------------
+# ---------------- RUN (LOCAL ONLY) ----------------
 
 if __name__ == "__main__":
-    init_db()
-
     port = int(os.environ.get("PORT", 5000))
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+    app.run(host="0.0.0.0", port=port)

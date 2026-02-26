@@ -8,7 +8,6 @@ from werkzeug.utils import secure_filename
 # ---------------- APP SETUP ----------------
 
 app = Flask(__name__)
-app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.secret_key = "justicecloud_final_project_key"
 

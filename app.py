@@ -15,9 +15,6 @@ app.secret_key = "justicecloud_final_project_key"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    if not DATABASE_URL:
-        raise Exception("DATABASE_URL not found in environment variables")
-
     return psycopg2.connect(
         DATABASE_URL,
         sslmode="require",
@@ -31,17 +28,15 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
 
-        # Users table
         c.execute("""
         CREATE TABLE IF NOT EXISTS users(
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE,
-            password VARCHAR(100),
+            password VARCHAR(200),
             role VARCHAR(50)
         )
         """)
 
-        # Cases table
         c.execute("""
         CREATE TABLE IF NOT EXISTS cases(
             id SERIAL PRIMARY KEY,
@@ -54,7 +49,7 @@ def init_db():
         )
         """)
 
-        # Ensure admin exists
+        # Create default admin
         c.execute("SELECT id FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
@@ -62,7 +57,11 @@ def init_db():
             c.execute("""
             INSERT INTO users(username,password,role)
             VALUES(%s,%s,%s)
-            """, ("admin", generate_password_hash("admin123"), "Administrator"))
+            """, (
+                "admin",
+                generate_password_hash("admin123"),
+                "Administrator"
+            ))
 
         conn.commit()
         conn.close()
@@ -70,7 +69,7 @@ def init_db():
     except Exception as e:
         print("DB INIT ERROR:", e)
 
-# 🔥 Force DB init (important for production servers like Gunicorn)
+# ⚠ DO NOT COMMENT THIS OUT — Needed for Render
 init_db()
 
 # ---------------- FILE UPLOAD ----------------
@@ -103,20 +102,17 @@ def login():
 
             c.execute("""
             SELECT * FROM users
-            WHERE username=%s 
-            """, (username, password))
+            WHERE username=%s
+            """, (username,))
 
             user = c.fetchone()
-
-            if user and check_password_hash(user["password"], password):
-                session["user"] = user["username"]
-                session["role"] = user["role"]
-                return redirect("/dashboard")   
             conn.close()
 
-            if user:
+            if user and check_password_hash(user["password"], password):
+
                 session["user"] = user["username"]
                 session["role"] = user["role"]
+
                 return redirect("/dashboard")
 
         except Exception as e:
@@ -135,7 +131,6 @@ def dashboard():
     conn = get_db_connection()
     c = conn.cursor()
 
-    # Use aliases for dictionary keys
     c.execute("SELECT COUNT(*) AS total FROM cases")
     total_cases = c.fetchone()["total"]
 
@@ -181,9 +176,14 @@ def add_case():
 
         if "file" in request.files:
             file = request.files["file"]
+
             if file.filename != "":
                 filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+
+                file.save(
+                    os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                )
+
                 document = filename
 
         conn = get_db_connection()
@@ -192,7 +192,7 @@ def add_case():
         c.execute("""
         INSERT INTO cases
         (case_number, client_name, case_type, hearing_date, status, document)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s,%s,%s,%s,%s,%s)
         """, (case_number, client_name, case_type, hearing_date, status, document))
 
         conn.commit()
@@ -235,7 +235,7 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# ---------------- RUN (LOCAL ONLY) ----------------
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

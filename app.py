@@ -109,8 +109,8 @@ def login():
             conn.close()
 
             if user:
-                session["user"] = user[1]
-                session["role"] = user[3]
+                session["user"] = user["username"]
+                session["role"] = user["role"]
                 return redirect("/dashboard")
 
         except Exception as e:

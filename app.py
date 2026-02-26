@@ -1,3 +1,4 @@
+from werkzeug.security import generate_password_hash, check_password_hash
 from psycopg2.extras import RealDictCursor
 import os
 import psycopg2
@@ -61,7 +62,7 @@ def init_db():
             c.execute("""
             INSERT INTO users(username,password,role)
             VALUES(%s,%s,%s)
-            """, ("admin", "admin123", "Administrator"))
+            """, ("admin", generate_password_hash("admin123"), "Administrator"))
 
         conn.commit()
         conn.close()
@@ -102,10 +103,15 @@ def login():
 
             c.execute("""
             SELECT * FROM users
-            WHERE username=%s AND password=%s
+            WHERE username=%s 
             """, (username, password))
 
             user = c.fetchone()
+
+            if user and check_password_hash(user["password"], password):
+                session["user"] = user["username"]
+                session["role"] = user["role"]
+                return redirect("/dashboard")   
             conn.close()
 
             if user:

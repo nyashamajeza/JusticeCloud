@@ -1,3 +1,4 @@
+from psycopg2.extras import RealDictCursor
 import os
 import psycopg2
 from flask import Flask, render_template, request, redirect, session
@@ -18,7 +19,8 @@ def get_db_connection():
 
     return psycopg2.connect(
         DATABASE_URL,
-        sslmode="require"
+        sslmode="require",
+        cursor_factory=RealDictCursor   
     )
 
 # ---------------- INIT DATABASE ----------------

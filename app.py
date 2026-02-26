@@ -20,7 +20,7 @@ def get_db_connection():
     return psycopg2.connect(
         DATABASE_URL,
         sslmode="require",
-        cursor_factory=RealDictCursor   
+        cursor_factory=RealDictCursor
     )
 
 # ---------------- INIT DATABASE ----------------
@@ -30,7 +30,7 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
 
-        # Create users table
+        # Users table
         c.execute("""
         CREATE TABLE IF NOT EXISTS users(
             id SERIAL PRIMARY KEY,
@@ -40,7 +40,7 @@ def init_db():
         )
         """)
 
-        # Create cases table
+        # Cases table
         c.execute("""
         CREATE TABLE IF NOT EXISTS cases(
             id SERIAL PRIMARY KEY,
@@ -54,14 +54,14 @@ def init_db():
         """)
 
         # Ensure admin exists
-        c.execute("SELECT * FROM users WHERE username=%s", ("admin",))
+        c.execute("SELECT id FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
         if not admin:
             c.execute("""
             INSERT INTO users(username,password,role)
             VALUES(%s,%s,%s)
-            """, ("admin","admin123","Administrator"))
+            """, ("admin", "admin123", "Administrator"))
 
         conn.commit()
         conn.close()
@@ -69,7 +69,7 @@ def init_db():
     except Exception as e:
         print("DB INIT ERROR:", e)
 
-# 🔥 IMPORTANT: FORCE DB INIT ON STARTUP (FOR GUNICORN)
+# 🔥 Force DB init (important for production servers like Gunicorn)
 init_db()
 
 # ---------------- FILE UPLOAD ----------------
@@ -88,7 +88,7 @@ def home():
 
 # ---------- LOGIN ----------
 
-@app.route("/login", methods=["GET","POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
@@ -103,7 +103,7 @@ def login():
             c.execute("""
             SELECT * FROM users
             WHERE username=%s AND password=%s
-            """,(username,password))
+            """, (username, password))
 
             user = c.fetchone()
             conn.close()
@@ -129,20 +129,21 @@ def dashboard():
     conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT COUNT(*) FROM cases")
-    total_cases = c.fetchone()[0]
+    # Use aliases for dictionary keys
+    c.execute("SELECT COUNT(*) AS total FROM cases")
+    total_cases = c.fetchone()["total"]
 
-    c.execute("SELECT COUNT(*) FROM cases WHERE status='Open'")
-    open_cases = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS total FROM cases WHERE status='Open'")
+    open_cases = c.fetchone()["total"]
 
-    c.execute("SELECT COUNT(*) FROM cases WHERE status='Closed'")
-    closed_cases = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS total FROM cases WHERE status='Closed'")
+    closed_cases = c.fetchone()["total"]
 
     conn.close()
 
     prediction = 0
     if total_cases > 0:
-        prediction = round((closed_cases / total_cases) * 100,2)
+        prediction = round((closed_cases / total_cases) * 100, 2)
 
     return render_template(
         "dashboard.html",
@@ -156,7 +157,7 @@ def dashboard():
 
 # ---------- ADD CASE ----------
 
-@app.route("/add_case", methods=["GET","POST"])
+@app.route("/add_case", methods=["GET", "POST"])
 def add_case():
 
     if "user" not in session:
@@ -184,9 +185,9 @@ def add_case():
 
         c.execute("""
         INSERT INTO cases
-        (case_number,client_name,case_type,hearing_date,status,document)
-        VALUES(%s,%s,%s,%s,%s,%s)
-        """,(case_number,client_name,case_type,hearing_date,status,document))
+        (case_number, client_name, case_type, hearing_date, status, document)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """, (case_number, client_name, case_type, hearing_date, status, document))
 
         conn.commit()
         conn.close()
@@ -209,8 +210,10 @@ def view_cases():
     c = conn.cursor()
 
     if search:
-        c.execute("SELECT * FROM cases WHERE case_number LIKE %s",
-                  ("%"+search+"%",))
+        c.execute(
+            "SELECT * FROM cases WHERE case_number LIKE %s",
+            ("%" + search + "%",)
+        )
     else:
         c.execute("SELECT * FROM cases")
 

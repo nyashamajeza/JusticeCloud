@@ -8,6 +8,8 @@ from werkzeug.utils import secure_filename
 # ---------------- APP SETUP ----------------
 
 app = Flask(__name__)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.secret_key = "justicecloud_final_project_key"
 
 # ---------------- DATABASE ----------------
@@ -69,8 +71,7 @@ def init_db():
     except Exception as e:
         print("DB INIT ERROR:", e)
 
-# ⚠ DO NOT COMMENT THIS OUT — Needed for Render
-init_db()
+
 
 # ---------------- FILE UPLOAD ----------------
 
@@ -235,6 +236,9 @@ def logout():
     session.clear()
     return redirect("/login")
 
+with app.app_context():
+    init_db()
+    
 # ---------------- RUN ----------------
 
 if __name__ == "__main__":

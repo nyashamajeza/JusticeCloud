@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.secret_key = "justicecloud_final_project_key"
+app.secret_key = os.environ.get("SECRET_KEY", "justicecloud_final_project_key")
 
 # ---------------- DATABASE ----------------
 
@@ -29,6 +29,7 @@ def init_db():
         conn = get_db_connection()
         c = conn.cursor()
 
+        # USERS TABLE
         c.execute("""
         CREATE TABLE IF NOT EXISTS users(
             id SERIAL PRIMARY KEY,
@@ -38,6 +39,7 @@ def init_db():
         )
         """)
 
+        # CASES TABLE
         c.execute("""
         CREATE TABLE IF NOT EXISTS cases(
             id SERIAL PRIMARY KEY,
@@ -50,26 +52,40 @@ def init_db():
         )
         """)
 
-        # Create default admin
-        c.execute("SELECT id FROM users WHERE username=%s", ("admin",))
+        # ---------------- ADMIN USER FIX ----------------
+
+        c.execute("SELECT * FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
         if not admin:
+            print("Creating admin user...")
             c.execute("""
-            INSERT INTO users(username,password,role)
-            VALUES(%s,%s,%s)
+                INSERT INTO users(username,password,role)
+                VALUES(%s,%s,%s)
             """, (
                 "admin",
                 generate_password_hash("admin123"),
                 "Administrator"
             ))
 
+        else:
+            # Fix plain text password if found
+            if not admin["password"].startswith("pbkdf2:"):
+                print("Fixing admin password hash...")
+                c.execute("""
+                    UPDATE users
+                    SET password=%s
+                    WHERE username=%s
+                """, (
+                    generate_password_hash("admin123"),
+                    "admin"
+                ))
+
         conn.commit()
         conn.close()
 
     except Exception as e:
         print("DB INIT ERROR:", e)
-
 
 
 # ---------------- FILE UPLOAD ----------------
@@ -106,8 +122,9 @@ def login():
             """, (username,))
 
             user = c.fetchone()
-            print("User found:", user)
             conn.close()
+
+            print("User found:", user)
 
             if user and check_password_hash(user["password"], password):
 
@@ -120,6 +137,7 @@ def login():
             print("Login error:", e)
 
     return render_template("login.html")
+
 
 # ---------- DASHBOARD ----------
 
@@ -157,6 +175,7 @@ def dashboard():
         prediction=prediction
     )
 
+
 # ---------- ADD CASE ----------
 
 @app.route("/add_case", methods=["GET", "POST"])
@@ -178,7 +197,7 @@ def add_case():
         if "file" in request.files:
             file = request.files["file"]
 
-            if file.filename != "":
+            if file and file.filename != "":
                 filename = secure_filename(file.filename)
 
                 file.save(
@@ -202,6 +221,7 @@ def add_case():
         return redirect("/dashboard")
 
     return render_template("add_case.html")
+
 
 # ---------- VIEW CASES ----------
 
@@ -229,6 +249,7 @@ def view_cases():
 
     return render_template("view_cases.html", cases=cases)
 
+
 # ---------- LOGOUT ----------
 
 @app.route("/logout")
@@ -236,10 +257,11 @@ def logout():
     session.clear()
     return redirect("/login")
 
+
+# ---------------- RUN ----------------
+
 with app.app_context():
     init_db()
-    
-# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

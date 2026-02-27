@@ -9,14 +9,18 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.secret_key = os.environ.get("SECRET_KEY", "justicecloud_final_project_key")
+
+# Use production secret key
+app.secret_key = os.environ.get("SECRET_KEY")
 
 # ---------------- DATABASE ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    print("DATABASE_URL:", DATABASE_URL)
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL is not set")
+
     return psycopg2.connect(
         DATABASE_URL,
         sslmode="require",
@@ -35,7 +39,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users(
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE,
-            password VARCHAR(200),
+            password TEXT,
             role VARCHAR(50)
         )
         """)
@@ -53,13 +57,14 @@ def init_db():
         )
         """)
 
-        # ---------------- ADMIN USER FIX ----------------
+        # ---------------- ADMIN USER ----------------
 
         c.execute("SELECT * FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
         if not admin:
             print("Creating admin user...")
+
             c.execute("""
                 INSERT INTO users(username,password,role)
                 VALUES(%s,%s,%s)
@@ -69,25 +74,11 @@ def init_db():
                 "Administrator"
             ))
 
-        else:
-            # Fix plain text password if found
-            if not admin["password"].startswith("pbkdf2:"):
-                print("Fixing admin password hash...")
-                c.execute("""
-                    UPDATE users
-                    SET password=%s
-                    WHERE username=%s
-                """, (
-                    generate_password_hash("admin123"),
-                    "admin"
-                ))
-
         conn.commit()
         conn.close()
 
     except Exception as e:
         print("DB INIT ERROR:", e)
-
 
 # ---------------- FILE UPLOAD ----------------
 
@@ -139,7 +130,6 @@ def login():
 
     return render_template("login.html")
 
-
 # ---------- DASHBOARD ----------
 
 @app.route("/dashboard")
@@ -175,7 +165,6 @@ def dashboard():
         closed_cases=closed_cases,
         prediction=prediction
     )
-
 
 # ---------- ADD CASE ----------
 
@@ -223,7 +212,6 @@ def add_case():
 
     return render_template("add_case.html")
 
-
 # ---------- VIEW CASES ----------
 
 @app.route("/view_cases")
@@ -250,7 +238,6 @@ def view_cases():
 
     return render_template("view_cases.html", cases=cases)
 
-
 # ---------- LOGOUT ----------
 
 @app.route("/logout")
@@ -258,8 +245,7 @@ def logout():
     session.clear()
     return redirect("/login")
 
-
-# ---------------- RUN ----------------
+# ---------------- START APP ----------------
 
 with app.app_context():
     init_db()

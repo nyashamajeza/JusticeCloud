@@ -16,6 +16,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "justicecloud_final_project_key")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
+    print("DATABASE_URL:", DATABASE_URL)
     return psycopg2.connect(
         DATABASE_URL,
         sslmode="require",

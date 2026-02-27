@@ -10,8 +10,8 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Use production secret key
-app.secret_key = os.environ.get("SECRET_KEY")
+# Production secret key (IMPORTANT)
+app.secret_key = os.environ.get("SECRET_KEY", "change_this_in_production")
 
 # ---------------- DATABASE ----------------
 
@@ -19,7 +19,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
     if not DATABASE_URL:
-        raise Exception("DATABASE_URL is not set")
+        raise Exception("DATABASE_URL is not configured")
 
     return psycopg2.connect(
         DATABASE_URL,
@@ -57,17 +57,17 @@ def init_db():
         )
         """)
 
-        # ---------------- ADMIN USER ----------------
+        # -------- ADMIN USER SAFE CREATION --------
 
         c.execute("SELECT * FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
         if not admin:
-            print("Creating admin user...")
+            print("Creating default admin user")
 
             c.execute("""
-                INSERT INTO users(username,password,role)
-                VALUES(%s,%s,%s)
+            INSERT INTO users(username,password,role)
+            VALUES(%s,%s,%s)
             """, (
                 "admin",
                 generate_password_hash("admin123"),
@@ -158,8 +158,8 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
-        user=session["user"],
-        role=session["role"],
+        user=session.get("user"),
+        role=session.get("role"),
         total=total_cases,
         open_cases=open_cases,
         closed_cases=closed_cases,

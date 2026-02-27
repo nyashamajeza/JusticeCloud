@@ -8,8 +8,17 @@ from werkzeug.utils import secure_filename
 # ---------------- APP SETUP ----------------
 
 app = Flask(__name__)
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.secret_key = "justicecloud_final_project_key"
+
+# Production-safe session configuration
+if os.environ.get("RENDER"):
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"
+else:
+    app.config["SESSION_COOKIE_SECURE"] = False
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 # ---------------- DATABASE ----------------
 
@@ -50,7 +59,7 @@ def init_db():
         )
         """)
 
-        # Create default admin
+        # Create default admin if not exists
         c.execute("SELECT id FROM users WHERE username=%s", ("admin",))
         admin = c.fetchone()
 
@@ -69,8 +78,6 @@ def init_db():
 
     except Exception as e:
         print("DB INIT ERROR:", e)
-
-
 
 # ---------------- FILE UPLOAD ----------------
 
@@ -100,20 +107,18 @@ def login():
             conn = get_db_connection()
             c = conn.cursor()
 
-            c.execute("""
-            SELECT * FROM users
-            WHERE username=%s
-            """, (username,))
-
+            c.execute("SELECT * FROM users WHERE username=%s", (username,))
             user = c.fetchone()
             conn.close()
 
             if user and check_password_hash(user["password"], password):
-
                 session["user"] = user["username"]
                 session["role"] = user["role"]
-
+                print("Login success:", user["username"])
                 return redirect("/dashboard")
+
+            else:
+                print("Login failed")
 
         except Exception as e:
             print("Login error:", e)
@@ -179,11 +184,7 @@ def add_case():
 
             if file.filename != "":
                 filename = secure_filename(file.filename)
-
-                file.save(
-                    os.path.join(app.config["UPLOAD_FOLDER"], filename)
-                )
-
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
                 document = filename
 
         conn = get_db_connection()
@@ -235,9 +236,11 @@ def logout():
     session.clear()
     return redirect("/login")
 
+# ---------------- INITIALIZE DB ----------------
+
 with app.app_context():
     init_db()
-    
+
 # ---------------- RUN ----------------
 
 if __name__ == "__main__":
